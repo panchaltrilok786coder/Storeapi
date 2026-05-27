@@ -22,13 +22,6 @@ export default async function handler(req, res) {
 
   }
 
-  if (req.method !== "POST") {
-
-    return res.status(405).json({
-      success: false
-    });
-
-  }
   // only allow POST requests
   if (req.method !== "POST") {
 
