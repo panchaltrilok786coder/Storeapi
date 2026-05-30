@@ -25,8 +25,6 @@ export default async function handler(req, res) {
     });
   }
 
-  }
-
   try {
     const {
       razorpay_order_id,
