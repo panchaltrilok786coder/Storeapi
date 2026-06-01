@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     });
   }
   try {
-    const { amount } = req.body;
+    // const { amount } = req.body;
 
     const razorpay = new Razorpay({
       key_id: process.env.RZP_KEY_ID,
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     });
 
     const options = {
-      amount: amount * 100, // INR → paise
+      amount: 100 * 100, // INR → paise
       currency: "INR",
       receipt: "rcpt_" + Date.now()
     };
