@@ -1,8 +1,5 @@
 import Razorpay from "razorpay";
 
-// =========================
-// MAIN HANDLER
-// =========================
 export default async function handler(req, res) {
 
   // =========================
@@ -13,14 +10,14 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   // =========================
-  // HANDLE PREFLIGHT
+  // PREFLIGHT
   // =========================
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
   // =========================
-  // ONLY POST ALLOWED
+  // METHOD CHECK
   // =========================
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -32,27 +29,58 @@ export default async function handler(req, res) {
   try {
 
     // =========================
-    // GET DATA
+    // DEBUG: REQUEST BODY
     // =========================
+    console.log("🔵 Incoming Request Body:", req.body);
+
     const { amount } = req.body || {};
 
+    console.log("🟡 Raw Amount:", amount);
+    console.log("🟡 Amount Type:", typeof amount);
+
     // =========================
-    // VALIDATION (IMPORTANT)
+    // VALIDATION
     // =========================
     if (amount === undefined || amount === null) {
       return res.status(400).json({
         success: false,
-        error: "Amount missing from request"
+        error: "Amount missing from request",
+        debug: req.body
       });
     }
 
     const numericAmount = Number(amount);
 
-    if (isNaN(numericAmount) || numericAmount <= 0) {
+    console.log("🟡 Parsed Number:", numericAmount);
+
+    if (isNaN(numericAmount)) {
       return res.status(400).json({
         success: false,
-        error: "Invalid amount received",
+        error: "Amount is NaN",
         received: amount
+      });
+    }
+
+    if (numericAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Amount must be greater than 0",
+        received: numericAmount
+      });
+    }
+
+    // =========================
+    // CHECK ENV VARIABLES
+    // =========================
+    console.log("🔵 ENV CHECK:", {
+      key_id: !!process.env.RZP_KEY_ID,
+      key_secret: !!process.env.RZP_KEY_SECRET
+    });
+
+    if (!process.env.RZP_KEY_ID || !process.env.RZP_KEY_SECRET) {
+      return res.status(500).json({
+        success: false,
+        error: "Missing Razorpay env variables"
       });
     }
 
@@ -64,23 +92,36 @@ export default async function handler(req, res) {
       key_secret: process.env.RZP_KEY_SECRET
     });
 
-    if (!process.env.RZP_KEY_ID || !process.env.RZP_KEY_SECRET) {
-      return res.status(500).json({
-        success: false,
-        error: "Razorpay keys missing in environment variables"
-      });
-    }
-
     // =========================
-    // CREATE ORDER
+    // BUILD ORDER OPTIONS
     // =========================
     const options = {
-      amount: Math.round(numericAmount * 100), // paise
+      amount: Math.floor(numericAmount * 100), // paise
       currency: "INR",
       receipt: "rcpt_" + Date.now()
     };
 
-    const order = await razorpay.orders.create(options);
+    console.log("🟣 Razorpay Options:", options);
+
+    // =========================
+    // CREATE ORDER (SAFE)
+    // =========================
+    let order;
+
+    try {
+      order = await razorpay.orders.create(options);
+      console.log("🟢 Razorpay Order Success:", order);
+
+    } catch (rzpError) {
+      console.log("🔴 Razorpay Error:", rzpError);
+
+      return res.status(500).json({
+        success: false,
+        error: "Razorpay order creation failed",
+        details: rzpError.message,
+        fullError: rzpError
+      });
+    }
 
     // =========================
     // SUCCESS RESPONSE
@@ -92,12 +133,12 @@ export default async function handler(req, res) {
 
   } catch (err) {
 
-    // =========================
-    // ERROR RESPONSE
-    // =========================
+    console.log("🔥 SERVER CRASH:", err);
+
     return res.status(500).json({
       success: false,
-      error: err.message || "Server error"
+      error: err.message,
+      stack: err.stack
     });
   }
 }
